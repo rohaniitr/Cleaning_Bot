@@ -4,9 +4,10 @@ int left= A2;
 int forward= A3;
 int backward= A4;
 
-//Store Options
+//User Control Options
 int startRecording= 11;
 int stopRecording= 12;
+int startCleaning= 10;
 
 //Store Interrupts
 int startStore= 2;
@@ -25,6 +26,7 @@ unsigned long time[MAX_ARRAY_LENGTH];
 //Have to try storing in char to save memory
 int direction[MAX_ARRAY_LENGTH];
 int i= 0;
+int STOP_POINTER;
 
 //Control Signals
 boolean isStoring;
@@ -33,6 +35,7 @@ boolean isLeft;
 boolean isForward;
 boolean isBackward;
 boolean isStop;
+boolean isReading;	
 
 //Time Required For A Single Turn: Right or Left (in milliseconds)
 int TURN_TIME= 5000;
@@ -46,20 +49,21 @@ void setup()
 	pinMode(stop, INPUT);
 	pinMode(startRecording, INPUT);
 	pinMode(stopRecording, INPUT);
+	pinMode(startCleaning, INPUT);
 
 	pinMode(mRightHigh, OUTPUT);
 	pinMode(mLeftHigh, OUTPUT);
 	pinMode(mRightLow, OUTPUT);
 	pinMode(mLeftLow, OUTPUT);
 
-	attachInterrupt(startStore, set_isStoring, RISING);
-	attachInterrupt(stopStore, stop_isStoring, RISING);
+	
 
 	isStoring= false;
 	isRight= false;
 	isLeft= false;
 	isForward= false;
 	isBackward= false;
+	isReading= false;
 }
 
 void loop()
@@ -69,13 +73,21 @@ void loop()
 	{
 		i= 0;
 		isStoring= true;
+		isReading= false;
 		REFERENCE_TIME= millis();
+
+		attachInterrupt(startStore, set_isStoring, RISING);
+		attachInterrupt(stopStore, stop_isStoring, RISING);
 	}
 
 	//STOPPING STORE MODE
 	else if(digitalRead(stopRecording)==HIGH)
 	{
 		isStoring= false;
+		isReading= false;
+
+		detachInterrupt(startStore);
+		detachInterrupt(stopStore);
 	}
 
 	//STORING MODE
@@ -103,10 +115,19 @@ void loop()
 		}
 	}
 
-	//READING MODE
-	else //isStoring== false;
+	//START READING MODE
+	else if (digitalRead(startCleaning)==HIGH)
 	{
+		isReading= true;
+	}
 
+	//READING MODE
+	else if (isReading==true)
+	{
+		for(int j= 0; j< STOP_POINTER, j++)
+		{
+			readAndMove(direction[j], time[j+1]-time[j]);
+		}
 	}
 
 } 
@@ -123,6 +144,7 @@ void moveForward()
 	{
 		time[i]= millis() - REFERENCE_TIME;
 		direction[i]= 0;
+		i++;
 	}
 
 	//Manage Control Signals Here
@@ -145,6 +167,7 @@ void moveBackward()
 	{
 		time[i]= millis() - REFERENCE_TIME;
 		direction[i]= 1;
+		i++;
 	}
 
 	//Manage Control Signals Here
@@ -166,6 +189,7 @@ void moveRight()
 
 	time[i]= millis() - REFERENCE_TIME;
 	direction[i]= 2;
+	i++;
 
 	//Manage Control Signals Here
 	isRight=true;
@@ -186,6 +210,7 @@ void moveLeft()
 
 	time[i]= millis() - REFERENCE_TIME;
 	direction[i]= 3;
+	i++;
 
 	//Manage Control Signals Here
 	isRight=false;
@@ -207,6 +232,8 @@ void stopBot()
 	{
 		time[i]= millis() - REFERENCE_TIME;
 		direction[i]= 4;
+		STOP_POINTER= i;
+		i++;
 	}
 
 	//Manage Control Signals Here
@@ -215,6 +242,33 @@ void stopBot()
 	isForward= false;
 	isBackward= false;
 	isStop= true;
+}
+
+void readAndMove(int Direction, unsigned long Time)
+{
+	if(Direction== 0)
+	{
+		moveForward();
+		delay(Time);
+	}
+	else if(Direction== 1)
+	{
+		moveBackward();
+		delay(Time);
+	}
+	else if(Direction== 2)
+	{
+		moveRight();
+	}
+	else if(Direction== 3)
+	{
+		moveLeft();
+	}
+	else if(Direction== 4)
+	{
+		stopBot();
+		delay(Time);
+	}
 }
 
 void set_isStoring()
